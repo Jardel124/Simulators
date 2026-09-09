@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Friday Night Funkin' - CapCut Style Editor Edition</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+    body {
+      background-color: #121212; color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100vh; overflow: hidden; user-select: none;
+    }
+    #game-container {
+      position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.8);
+      border: 4px solid #333; border-radius: 8px; overflow: hidden;
+    }
+    canvas { background-color: #222; display: block; cursor: pointer; }
+    #ui {
+      position: absolute; top: 15px; left: 15px;
+      font-weight: bold; font-size: 16px; pointer-events: none;
+      text-shadow: 2px 2px #000; display: none;
+      flex-direction: column; gap: 6px; z-index: 10;
+    }
+    .score-val { color: #00ff66; }
+    .combo-val { color: #ffaa00; }
+    .acc-val { color: #00ffff; }
+
+    /* CAPCUT-STYLE TIMELINE EDITOR MODAL */
+    #editor-modal {
+      display: none; position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%; background: #1a1a1a;
+      z-index: 50; flex-direction: column; color: #fff;
+    }
+    .editor-header {
+      height: 45px; background: #252525; display: flex;
+      align-items: center; justify-content: space-between;
+      padding: 0 15px; border-bottom: 1px solid #333;
+    }
+    .editor-title { font-weight: bold; color: #00ff66; font-size: 14px; }
+    .top-actions { display: flex; gap: 10px; }
+    
+    .editor-body { display: flex; flex: 1; overflow: hidden; }
+    
+    /* Left Panel: Media Assets & Setup */
+    .editor-sidebar {
+      width: 250px; background: #202020; padding: 12px;
+      display: flex; flex-direction: column; gap: 10px;
+      border-right: 1px solid #333; overflow-y: auto; font-size: 12px;
+    }
+    .sidebar-group { display: flex; flex-direction: column; gap: 4px; }
+    .sidebar-group label { color: #888; font-weight: bold; }
+    .sidebar-group input[type="text"], .sidebar-group input[type="number"] {
+      padding: 6px; background: #111; border: 1px solid #444; color: #fff; border-radius: 4px;
+    }
+    .sidebar-group input[type="file"] { font-size: 10px; }
+
+    /* Center Viewport: Preview Screen */
+    .editor-viewport {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; background: #000;
+      position: relative;
+    }
+    #previewCanvas { background: #181528; border: 1px solid #333; }
+    .preview-controls {
+      margin-top: 8px; display: flex; gap: 12px; align-items: center;
+    }
+
+    /* Timeline Section (CapCut Bottom Style) */
+    .editor-timeline-panel {
+      height: 220px; background: #181818; border-top: 2px solid #333;
+      display: flex; flex-direction: column;
+    }
+    .timeline-toolbar {
+      height: 35px; background: #222; display: flex; align-items: center;
+      padding: 0 15px; gap: 15px; font-size: 12px; border-bottom: 1px solid #333;
+    }
+    .timeline-container {
+      flex: 1; position: relative; overflow-x: auto; overflow-y: hidden; background: #121212;
+    }
+    .timeline-tracks {
+      position: relative; height: 100%; min-width: 2000px;
+    }
+    .track-row {
+      height: 35px; border-bottom: 1px solid #282828; display: flex; align-items: center;
+      position: relative;
+    }
+    .track-label {
+      position: sticky; left: 0; width: 60px; height: 100%; background: #252525;
+      z-index: 5; display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: bold; border-right: 1px solid #444;
+    }
+    .timeline-playhead {
+      position: absolute; top: 0; bottom: 0; width: 2px; background: #ff0055;
+      z-index: 10; pointer-events: none;
+    }
+    .timeline-note-block {
+      position: absolute; height: 26px; top: 4px; border-radius: 3px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: bold; color: #000; cursor: pointer;
+    }
+
+    /* Editor UI Buttons */
+    .btn {
+      padding: 5px 12px; border-radius: 4px; border: none; font-weight: bold;
+      cursor: pointer; font-size: 11px;
+    }
+    .btn-green { background: #00ff66; color: #000; }
+    .btn-blue { background: #00ccff; color: #000; }
+    .btn-red { background: #ff0055; color: #fff; }
+    .btn-gray { background: #444; color: #fff; }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <div id="ui">
+      <div>Score: <span id="score" class="score-val">0</span></div>
+      <div>Combo: <span id="combo" class="combo-val">0</span></div>
+      <div>Accuracy: <span id="accuracy" class="acc-val">100.00%</span></div>
+      <div>Rating: <span id="rating">-</span></div>
+    </div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <!-- CAPCUT-STYLE TIMELINE EDITOR -->
+    <div id="editor-modal">
+      <div class="editor-header">
+        <div class="editor-title">FNF CAPCUT-STYLE TRACK EDITOR</div>
+        <div class="top-actions">
+          <button class="btn btn-blue" id="btn-import-project">IMPORT JSON</button>
+          <button class="btn btn-blue" id="btn-export-project">EXPORT JSON</button>
+          <button class="btn btn-green" id="btn-save-play">SAVE & PLAY</button>
+          <button class="btn btn-red" id="btn-close-editor">EXIT</button>
+        </div>
+      </div>
+
+      <div class="editor-body">
+        <!-- Sidebar Controls -->
+        <div class="editor-sidebar">
+          <div class="sidebar-group">
+            <label>Stage Title</label>
+            <input type="text" id="edit-title" value="My Custom Track">
+          </div>
+          <div class="sidebar-group">
+            <label>Song Duration (sec)</label>
+            <input type="number" id="edit-duration" value="60">
+          </div>
+          <div class="sidebar-group">
+            <label>Audio File (.mp3/.wav)</label>
+            <input type="file" id="edit-audio" accept="audio/*">
+          </div>
+          <div class="sidebar-group">
+            <label>Manual Note Placement</label>
+            <div style="display:flex; gap:4px;">
+              <input type="number" id="manual-sec" placeholder="Sec (e.g. 2.5)" step="0.1" style="width:65%;">
+              <select id="manual-dir" style="width:35%; background:#111; color:#fff; border:1px solid #444; border-radius:4px;">
+                <option value="0">←</option>
+                <option value="1">↓</option>
+                <option value="2">↑</option>
+                <option value="3">→</option>
+              </select>
+            </div>
+            <button class="btn btn-green" id="btn-add-manual" style="margin-top:4px;">+ ADD NOTE</button>
+          </div>
+          <hr style="border-color:#333; margin:4px 0;">
+          <div class="sidebar-group">
+            <label>Background Image</label>
+            <input type="file" id="edit-bg" accept="image/*">
+          </div>
+          <div class="sidebar-group">
+            <label>Player Idle Spritesheet</label>
+            <input type="file" id="edit-player-idle" accept="image/*">
+          </div>
+          <div class="sidebar-group">
+            <label>Player Sing Spritesheet</label>
+            <input type="file" id="edit-player-sing" accept="image/*">
+          </div>
+          <div class="sidebar-group">
+            <label>Enemy Idle Spritesheet</label>
+            <input type="file" id="edit-enemy-idle" accept="image/*">
+          </div>
+          <div class="sidebar-group">
+            <label>Enemy Sing Spritesheet</label>
+            <input type="file" id="edit-enemy-sing" accept="image/*">
+          </div>
+          <input type="file" id="json-input" accept=".json" style="display:none;">
+        </div>
+
+        <!-- Central Timeline Preview -->
+        <div class="editor-viewport">
+          <canvas id="previewCanvas" width="480" height="320"></canvas>
+          <div class="preview-controls">
+            <button class="btn btn-green" id="btn-prev-play">PLAY PREVIEW</button>
+            <button class="btn btn-gray" id="btn-prev-stop">STOP</button>
+            <span id="prev-time-code" style="font-family:monospace; font-size:12px;">00:00.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Timeline Panel -->
+      <div class="editor-timeline-panel">
+        <div class="timeline-toolbar">
+          <span>TIMELINE TRACKS (Click on track to add note at playhead)</span>
+          <span style="color:#888;">| Red Marker = Current Time</span>
+        </div>
+        <div class="timeline-container" id="timelineContainer">
+          <div class="timeline-playhead" id="playhead"></div>
+          <div class="timeline-tracks" id="timelineTracks">
+            <div class="track-row" data-dir="0"><div class="track-label" style="color:#c24b99;">LEFT ←</div></div>
+            <div class="track-row" data-dir="1"><div class="track-label" style="color:#00ffff;">DOWN ↓</div></div>
+            <div class="track-row" data-dir="2"><div class="track-label" style="color:#00ff66;">UP ↑</div></div>
+            <div class="track-row" data-dir="3"><div class="track-label" style="color:#ff003c;">RIGHT →</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const previewCanvas = document.getElementById('previewCanvas');
+    const pCtx = previewCanvas.getContext('2d');
+
+    const uiEl = document.getElementById('ui');
+    const scoreEl = document.getElementById('score');
+    const comboEl = document.getElementById('combo');
+    const accuracyEl = document.getElementById('accuracy');
+    const ratingEl = document.getElementById('rating');
+    const editorModal = document.getElementById('editor-modal');
+
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window);
+
+    let audioCtx = null;
+    function initAudioContext() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playSound(type) {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      const now = audioCtx.currentTime;
+
+      if (type === 'select') {
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+        gain.gain.setValueAtTime(0.3, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.1);
+        osc.start(now); osc.stop(now + 0.1);
+      } else if (type === 'move') {
+        osc.type = 'sine'; osc.frequency.setValueAtTime(300, now);
+        gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
+        osc.start(now); osc.stop(now + 0.05);
+      } else if (type === 'miss') {
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(120, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+        gain.gain.setValueAtTime(0.4, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+        osc.start(now); osc.stop(now + 0.2);
+      }
+    }
+
+    let currentAudio = null;
+    let menuAudio = new Audio("https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3");
+    menuAudio.loop = true; menuAudio.volume = 0.5; menuAudio.crossOrigin = "anonymous";
+
+    function playMenuMusic() {
+      if (menuAudio.paused) menuAudio.play().catch(e => console.log(e));
+    }
+    function stopMenuMusic() { menuAudio.pause(); }
+
+    function playTrack(src) {
+      stopMenuMusic();
+      if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+      currentAudio = (typeof src === 'string') ? new Audio(src) : src;
+      currentAudio.crossOrigin = "anonymous";
+      currentAudio.play().catch(e => console.log(e));
+    }
+    function stopTrack() {
+      if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+    }
+
+    const settings = { extraAnimations: true };
+    let keyBindings = ['ArrowLeft', 'ArrowDown', 'ArrowUp', 'ArrowRight'];
+    let bindingIndex = -1;
+
+    let gameState = 'MAIN_MENU';
+    let previousState = 'MAIN_MENU';
+    let selectedSettingsIndex = 0;
+    let selectedPauseIndex = 0;
+
+    const TARGET_Y = 100;
+    const NOTE_SPEED = 0.4;
+    const COL_WIDTH = 80;
+    const START_X = 240;
+    const COLORS = ['#c24b99', '#00ffff', '#00ff66', '#ff003c'];
+    const LABELS = ['←', '↓', '↑', '→'];
+
+    // Custom Assets Engine
+    let customStageAssets = {
+      bg: null, playerIdle: null, playerSing: null, enemyIdle: null, enemySing: null,
+      audioSrc: null, title: "CUSTOM STAGE", duration: 60, chart: []
+    };
+
+    let playerPoseTimer = 0;
+    let enemyPoseTimer = 0;
+
+    const WEEKS = [
+      {
+        id: 1, title: "WEEK 1: ELECTRO FUNK", color: "#ff0055",
+        tracks: ["Cyber Beat"],
+        audioUrl: "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3",
+        chart: [
+          { time: 1000, dir: 0 }, { time: 1500, dir: 1, length: 800 }, 
+          { time: 2500, dir: 2 }, { time: 2800, dir: 3 },
+          { time: 3300, dir: 1, length: 1200 }, { time: 4800, dir: 0 }
+        ]
+      },
+      {
+        id: 2, title: "CUSTOM EDITOR STAGE", color: "#00ff66",
+        tracks: ["CapCut Custom Track"], audioUrl: null, isCustom: true, chart: []
+      }
+    ];
+
+    let selectedWeekIndex = 0;
+    let score = 0, combo = 0, totalNotesHit = 0, totalHitWeight = 0, health = 50;
+    let startTime = null, pauseStartTime = 0, totalPauseDuration = 0;
+    let comboPopups = [], activeNotes = [], particles = [];
+    const keyState = [false, false, false, false];
+
+    /* --- CAPCUT EDITOR TIMELINE ENGINE --- */
+    let editorAudio = new Audio();
+    let isPreviewPlaying = false;
+    let previewAnimFrame = null;
+    let editorTime = 0; // Current time in seconds
+
+    function openEditorModal() {
+      gameState = 'EDITOR';
+      stopMenuMusic();
+      editorModal.style.display = 'flex';
+      renderTimelineNotes();
+      drawPreviewFrame();
+    }
+
+    function closeEditorModal() {
+      stopPreview();
+      editorModal.style.display = 'none';
+      gameState = 'WEEK_SELECT';
+    }
+
+    function renderTimelineNotes() {
+      const tracksEl = document.getElementById('timelineTracks');
+      const rowEls = tracksEl.querySelectorAll('.track-row');
+      rowEls.forEach(row => {
+        const notes = row.querySelectorAll('.timeline-note-block');
+        notes.forEach(n => n.remove());
+      });
+
+      const pixelsPerSec = 40;
+      customStageAssets.chart.forEach((note, index) => {
+        const row = rowEls[note.dir];
+        if (!row) return;
+        const noteEl = document.createElement('div');
+        noteEl.className = 'timeline-note-block';
+        noteEl.style.left = (60 + (note.time / 1000) * pixelsPerSec) + 'px';
+        noteEl.style.width = '24px';
+        noteEl.style.backgroundColor = COLORS[note.dir];
+        noteEl.innerText = LABELS[note.dir];
+
+        // Click note to delete it
+        noteEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          customStageAssets.chart.splice(index, 1);
+          renderTimelineNotes();
+        });
+
+        row.appendChild(noteEl);
+      });
+    }
+
+    // Timeline Click to add note at Playhead
+    document.getElementById('timelineTracks').addEventListener('click', (e) => {
+      const row = e.target.closest('.track-row');
+      if (!row) return;
+      const dir = parseInt(row.dataset.dir);
+      const rect = row.getBoundingClientRect();
+      const clickX = e.clientX - rect.left - 60;
+      if (clickX < 0) return;
+
+      const timeSec = clickX / 40;
+      customStageAssets.chart.push({ time: Math.floor(timeSec * 1000), dir });
+      renderTimelineNotes();
+    });
+
+    // Manual Note Placement
+    document.getElementById('btn-add-manual').addEventListener('click', () => {
+      const sec = parseFloat(document.getElementById('manual-sec').value);
+      const dir = parseInt(document.getElementById('manual-dir').value);
+      if (!isNaN(sec) && sec >= 0) {
+        customStageAssets.chart.push({ time: Math.floor(sec * 1000), dir });
+        renderTimelineNotes();
+      }
+    });
+
+    // Preview Engine
+    function startPreview() {
+      if (customStageAssets.audioSrc) editorAudio.src = customStageAssets.audioSrc;
+      else editorAudio.src = "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3";
+      
+      editorAudio.currentTime = editorTime;
+      editorAudio.play().catch(e => console.log(e));
+      isPreviewPlaying = true;
+      updatePreviewLoop();
+    }
+
+    function stopPreview() {
+      editorAudio.pause();
+      isPreviewPlaying = false;
+      if (previewAnimFrame) cancelAnimationFrame(previewAnimFrame);
+    }
+
+    document.getElementById('btn-prev-play').addEventListener('click', () => {
+      if (isPreviewPlaying) stopPreview();
+      else startPreview();
+    });
+    document.getElementById('btn-prev-stop').addEventListener('click', stopPreview);
+
+    function updatePreviewLoop() {
+      if (!isPreviewPlaying) return;
+      editorTime = editorAudio.currentTime;
+      
+      // Update Playhead position
+      const pixelsPerSec = 40;
+      document.getElementById('playhead').style.left = (60 + editorTime * pixelsPerSec) + 'px';
+      
+      // Update Time Code Text
+      const mins = Math.floor(editorTime / 60);
+      const secs = (editorTime % 60).toFixed(2);
+      document.getElementById('prev-time-code').innerText = `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+      drawPreviewFrame();
+      previewAnimFrame = requestAnimationFrame(updatePreviewLoop);
+    }
+
+    function drawPreviewFrame() {
+      pCtx.fillStyle = '#181528'; pCtx.fillRect(0, 0, previewCanvas.width, previewCanvas.height);
+      
+      // Receptors
+      for (let i = 0; i < 4; i++) {
+        pCtx.strokeStyle = COLORS[i]; pCtx.lineWidth = 2;
+        pCtx.strokeRect(120 + i * 60, 40, 40, 40);
+      }
+
+      // Notes
+      const currentTimeMs = editorTime * 1000;
+      customStageAssets.chart.forEach(note => {
+        const headY = 40 + (note.time - currentTimeMs) * 0.2;
+        if (headY > 0 && headY < previewCanvas.height) {
+          pCtx.fillStyle = COLORS[note.dir];
+          pCtx.fillRect(120 + note.dir * 60, headY, 40, 40);
+        }
+      });
+    }
+
+    // JSON Import / Export System
+    document.getElementById('btn-export-project').addEventListener('click', () => {
+      const exportData = {
+        title: document.getElementById('edit-title').value,
+        duration: parseInt(document.getElementById('edit-duration').value),
+        chart: customStageAssets.chart
+      };
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `${exportData.title.toLowerCase().replace(/\s+/g, '_')}_chart.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    });
+
+    document.getElementById('btn-import-project').addEventListener('click', () => {
+      document.getElementById('json-input').click();
+    });
+
+    document.getElementById('json-input').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const imported = JSON.parse(event.target.result);
+          if (imported.chart) {
+            customStageAssets.chart = imported.chart;
+            if (imported.title) document.getElementById('edit-title').value = imported.title;
+            if (imported.duration) document.getElementById('edit-duration').value = imported.duration;
+            renderTimelineNotes();
+            alert("Chart JSON imported successfully!");
+          }
+        } catch (err) {
+          alert("Invalid JSON Chart File.");
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    // Save & Play Editor Track
+    document.getElementById('btn-save-play').addEventListener('click', () => {
+      stopPreview();
+      const title = document.getElementById('edit-title').value || "Custom Stage";
+      const duration = parseInt(document.getElementById('edit-duration').value) || 60;
+      const audioFile = document.getElementById('edit-audio').files[0];
+
+      const loadImage = (inputId, callback) => {
+        const file = document.getElementById(inputId).files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const img = new Image(); img.src = e.target.result; callback(img);
+          };
+          reader.readAsDataURL(file);
+        } else callback(null);
+      };
+
+      loadImage('edit-bg', img => customStageAssets.bg = img);
+      loadImage('edit-player-idle', img => customStageAssets.playerIdle = img);
+      loadImage('edit-player-sing', img => customStageAssets.playerSing = img);
+      loadImage('edit-enemy-idle', img => customStageAssets.enemyIdle = img);
+      loadImage('edit-enemy-sing', img => customStageAssets.enemySing = img);
+
+      if (audioFile) customStageAssets.audioSrc = URL.createObjectURL(audioFile);
+
+      customStageAssets.title = title;
+      customStageAssets.duration = duration;
+
+      const customWeek = WEEKS.find(w => w.isCustom);
+      customWeek.title = `CUSTOM: ${title.toUpperCase()}`;
+      customWeek.audioUrl = customStageAssets.audioSrc || "https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3";
+      customWeek.chart = customStageAssets.chart;
+
+      closeEditorModal();
+      startWeek(customWeek);
+    });
+
+    document.getElementById('btn-close-editor').addEventListener('click', closeEditorModal);
+
+    /* --- GAME ENGINE & MENU NAVIGATION --- */
+    function handlePointerInput(x, y) {
+      initAudioContext();
+      if (gameState === 'MAIN_MENU') {
+        playMenuMusic();
+        if (x >= 250 && x <= 550 && y >= 320 && y <= 370) { playSound('select'); gameState = 'WEEK_SELECT'; }
+        else if (x >= 250 && x <= 550 && y >= 390 && y <= 440) { playSound('select'); openEditorModal(); }
+        else if (x >= 250 && x <= 550 && y >= 460 && y <= 510) { playSound('select'); previousState = 'MAIN_MENU'; gameState = 'SETTINGS'; }
+      } 
+      else if (gameState === 'WEEK_SELECT') {
+        if (x >= 20 && x <= 140 && y >= 20 && y <= 60) { playSound('move'); gameState = 'MAIN_MENU'; }
+        else if (x >= 640 && x <= 780 && y >= 20 && y <= 60) { playSound('select'); previousState = 'WEEK_SELECT'; gameState = 'SETTINGS'; }
+        else {
+          WEEKS.forEach((week, i) => {
+            const wy = 140 + i * 110;
+            if (x >= 100 && x <= 700 && y >= wy && y <= wy + 80) {
+              selectedWeekIndex = i; playSound('select');
+              if (week.isCustom) openEditorModal();
+              else startWeek(WEEKS[selectedWeekIndex]);
+            }
+          });
+        }
+      }
+      else if (gameState === 'SETTINGS') {
+        if (x >= 20 && x <= 140 && y >= 20 && y <= 60) { playSound('move'); gameState = previousState; }
+      }
+      else if (gameState === 'PAUSED') {
+        const options = ['CONTINUE', 'RESTART', 'EXIT TO MENU'];
+        options.forEach((_, i) => {
+          const py = 260 + i * 70;
+          if (x >= 250 && x <= 550 && y >= py && y <= py + 50) {
+            if (i === 0) resumeGame();
+            else if (i === 1) startWeek(WEEKS[selectedWeekIndex]);
+            else if (i === 2) { stopTrack(); uiEl.style.display = 'none'; gameState = 'WEEK_SELECT'; }
+          }
+        });
+      }
+      else if (gameState === 'WIN' || gameState === 'LOSE') { playSound('select'); gameState = 'WEEK_SELECT'; }
+      else if (gameState === 'PLAYING') {
+        if (x >= 730 && x <= 780 && y >= 15 && y <= 65) pauseGame();
+      }
+    }
+
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      handlePointerInput((e.clientX - rect.left) * (canvas.width / rect.width), (e.clientY - rect.top) * (canvas.height / rect.height));
+    });
+
+    window.addEventListener('keydown', (e) => {
+      initAudioContext();
+      if (gameState === 'MAIN_MENU') {
+        playMenuMusic();
+        if (e.code === 'Enter' || e.code === 'Space') { playSound('select'); gameState = 'WEEK_SELECT'; }
+        else if (e.code === 'KeyE') { playSound('select'); openEditorModal(); }
+        return;
+      }
+      if (gameState === 'PLAYING') {
+        if (e.code === 'Escape') { pauseGame(); return; }
+        const dir = keyBindings.indexOf(e.code);
+        if (dir !== -1 && !keyState[dir]) { keyState[dir] = true; checkHit(dir); }
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      const dir = keyBindings.indexOf(e.code);
+      if (dir !== -1) keyState[dir] = false;
+    });
+
+    function pauseGame() { gameState = 'PAUSED'; pauseStartTime = performance.now(); if (currentAudio) currentAudio.pause(); }
+    function resumeGame() { totalPauseDuration += performance.now() - pauseStartTime; gameState = 'PLAYING'; if (currentAudio) currentAudio.play(); }
+
+    function startWeek(weekData) {
+      stopMenuMusic();
+      score = 0; combo = 0; totalNotesHit = 0; totalHitWeight = 0; health = 50;
+      startTime = null; totalPauseDuration = 0; comboPopups = []; particles = [];
+      
+      activeNotes = weekData.chart.map(note => ({ 
+        ...note, hit: false, missed: false, completed: false, length: note.length || 0 
+      }));
+
+      uiEl.style.display = 'flex';
+      playTrack(weekData.audioUrl);
+      gameState = 'PLAYING';
+    }
+
+    function checkHit(dir) {
+      if (!startTime) return;
+      const currentTime = (performance.now() - startTime) - totalPauseDuration;
+      const candidate = activeNotes.find(n => n.dir === dir && !n.hit && !n.missed && !n.completed);
+
+      if (candidate) {
+        const headY = TARGET_Y + (candidate.time - currentTime) * NOTE_SPEED;
+        const diff = Math.abs(headY - TARGET_Y);
+        if (diff < 20) registerHit(candidate, 350, 1.0, 'SICK!', '#00ff66');
+        else if (diff < 45) registerHit(candidate, 150, 0.75, 'GOOD', '#00ffff');
+        else if (diff < 70) registerHit(candidate, 50, 0.25, 'BAD', '#ffaa00');
+      }
+    }
+
+    function registerHit(note, points, weight, text, color) {
+      note.hit = true; note.completed = true;
+      combo++; totalNotesHit++; totalHitWeight += weight;
+      score += points + (Math.floor(combo / 5) * 10);
+      health = Math.min(100, health + 4);
+      playerPoseTimer = 12;
+      updateUI(text, color);
+    }
+
+    function registerMiss(note) {
+      note.missed = true; combo = 0; totalNotesHit++;
+      health = Math.max(0, health - 10);
+      playSound('miss'); updateUI('MISS!', '#ff003c');
+    }
+
+    function updateUI(ratingText, color) {
+      scoreEl.textContent = score; comboEl.textContent = combo;
+      const acc = totalNotesHit > 0 ? (totalHitWeight / totalNotesHit) * 100 : 100;
+      accuracyEl.textContent = `${acc.toFixed(2)}%`;
+      ratingEl.textContent = ratingText; ratingEl.style.color = color;
+    }
+
+    function drawButton(text, x, y, w, h, bgColor, strokeColor) {
+      ctx.fillStyle = bgColor; ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = strokeColor; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(text, x + w / 2, y + h / 2);
+    }
+
+    function drawMainMenu() {
+      ctx.fillStyle = '#111'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#ff0055'; ctx.font = 'bold 50px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText("FRIDAY NIGHT FUNKIN'", canvas.width / 2, 160);
+      drawButton("PLAY GAME", 250, 320, 300, 50, "#00ff66", "#fff");
+      drawButton("CAPCUT EDITOR (E)", 250, 390, 300, 50, "#ff00ff", "#fff");
+      drawButton("SETTINGS", 250, 460, 300, 50, "#ff0055", "#fff");
+    }
+
+    function drawWeekSelect() {
+      ctx.fillStyle = '#0d0d0d'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      drawButton("← MENU", 20, 20, 120, 40, "#ff003c", "#fff");
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 32px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('SELECT WEEK', canvas.width / 2, 60);
+
+      WEEKS.forEach((week, i) => {
+        const y = 140 + i * 110;
+        const isSelected = i === selectedWeekIndex;
+        ctx.fillStyle = isSelected ? week.color : '#222'; ctx.fillRect(100, y, 600, 80);
+        ctx.strokeStyle = isSelected ? '#fff' : '#444'; ctx.lineWidth = 2; ctx.strokeRect(100, y, 600, 80);
+        ctx.fillStyle = isSelected ? '#000' : '#888'; ctx.font = 'bold 24px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText(week.title, 130, y + 48);
+      });
+    }
+
+    function drawCharacters() {
+      if (customStageAssets.bg) ctx.drawImage(customStageAssets.bg, 0, 0, canvas.width, canvas.height);
+      else {
+        ctx.fillStyle = '#181528'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#2d2545'; ctx.fillRect(0, 380, canvas.width, 220);
+      }
+
+      if (playerPoseTimer > 0) playerPoseTimer--;
+      if (enemyPoseTimer > 0) enemyPoseTimer--;
+
+      // Render Enemy & Player Sprites or Placeholders
+      const charW = 140, charH = 180;
+      if (customStageAssets.enemyIdle) ctx.drawImage(customStageAssets.enemyIdle, 80, 260, charW, charH);
+      else { ctx.fillStyle = '#880033'; ctx.fillRect(80, 260, charW, charH); }
+
+      if (customStageAssets.playerIdle) ctx.drawImage(customStageAssets.playerIdle, 580, 260, charW, charH);
+      else { ctx.fillStyle = '#008833'; ctx.fillRect(580, 260, charW, charH); }
+    }
+
+    function drawReceptors() {
+      for (let i = 0; i < 4; i++) {
+        const x = START_X + i * COL_WIDTH;
+        ctx.lineWidth = 3; ctx.strokeStyle = COLORS[i];
+        ctx.fillStyle = keyState[i] ? COLORS[i] : 'transparent';
+        ctx.fillRect(x, TARGET_Y, 60, 60); ctx.strokeRect(x, TARGET_Y, 60, 60);
+        ctx.fillStyle = keyState[i] ? '#000' : '#fff';
+        ctx.font = 'bold 30px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(LABELS[i], x + 30, TARGET_Y + 30);
+      }
+    }
+
+    function processNotes(currentTime) {
+      activeNotes.forEach(note => {
+        if (note.missed || note.completed) return;
+        const headY = TARGET_Y + (note.time - currentTime) * NOTE_SPEED;
+        const x = START_X + note.dir * COL_WIDTH;
+
+        if (!note.hit && headY > -50 && headY < canvas.height + 50) {
+          ctx.fillStyle = COLORS[note.dir]; ctx.fillRect(x, headY, 60, 60);
+          ctx.fillStyle = '#fff'; ctx.font = 'bold 30px sans-serif';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(LABELS[note.dir], x + 30, headY + 30);
+        }
+        if (!note.hit && headY < TARGET_Y - 60) registerMiss(note);
+      });
+    }
+
+    function gameLoop(timestamp) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (gameState === 'MAIN_MENU') drawMainMenu();
+      else if (gameState === 'WEEK_SELECT') drawWeekSelect();
+      else if (gameState === 'PLAYING' || gameState === 'PAUSED') {
+        if (!startTime) startTime = timestamp;
+        const currentTime = gameState === 'PAUSED' 
+          ? (pauseStartTime - startTime) - totalPauseDuration
+          : (timestamp - startTime) - totalPauseDuration;
+
+        drawCharacters();
+        drawReceptors();
+        processNotes(currentTime);
+      }
+      requestAnimationFrame(gameLoop);
+    }
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
