@@ -1,1 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResenhaOS v4.0</title>
+<style>
+  :root {
+    --bg-color: #121212;
+    --accent: #00e5ff;
+    --tile-active: #00e5ff;
+    --tile-inactive: rgba(255, 255, 255, 0.1);
+    --screen-bg: linear-gradient(135deg, #1f1c2c 0%, #928dab 100%);
+    --text-color: #ffffff;
+    --card-bg: rgba(255, 255, 255, 0.08);
+  }
+  
+  * { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+    user-select: none;
+  }
+  
+  body { 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    height: 100vh; 
+    background-color: #1a1a24; 
+    color: white; 
+  }
+  
+  /* Smartphone Frame */
+  .phone {
+    width: 360px; 
+    height: 720px;
+    background-color: #000;
+    border-radius: 40px; 
+    padding: 12px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.8);
+    border: 3px solid #333;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .camera-hole {
+    width: 14px; 
+    height: 14px; 
+    background: #000;
+    border-radius: 50%; 
+    position: absolute;
+    top: 20px; 
+    left: 50%; 
+    transform: translateX(-50%); 
+    z-index: 100;
+    border: 1px solid #1a1a1a;
+  }
+  
+  /* Screen */
+  .screen {
+    width: 100%; 
+    height: 100%;
+    background: var(--screen-bg);
+    border-radius: 28px; 
+    position: relative;
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden;
+    color: var(--text-color);
+    transition: background 0.3s ease, color 0.3s ease;
+  }
 
+  /* Overlays */
+  .flashlight-overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: #ffffff; z-index: 99; display: none;
+  }
+
+  .brightness-overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: black; pointer-events: none; z-index: 80; opacity: 0;
+    transition: opacity 0.1s linear;
+  }
+
+  /* Volume Toast */
+  .volume-toast {
+    position: absolute; top: 50px; right: 15px;
+    background: rgba(0, 0, 0, 0.85); color: white;
+    padding: 8px 12px; border-radius: 20px; font-size: 12px;
+    z-index: 75; display: flex; align-items: center; gap: 8px;
+    opacity: 0; transform: translateY(-10px); transition: all 0.2s ease;
+    backdrop-filter: blur(5px);
+  }
+
+  .volume-toast.show { opacity: 1; transform: translateY(0); }
+
+  /* Status Bar */
+  .status-bar {
+    display: flex; justify-content: space-between;
+    padding: 10px 20px 5px; font-size: 13px; font-weight: 600;
+    z-index: 10; cursor: pointer; background: rgba(0,0,0,0.1);
+  }
+  
+  .status-icons span { margin-left: 6px; }
+
+  /* Home Screen */
+  .home-screen { 
+    flex: 1; padding: 20px; display: flex; flex-direction: column; 
+    align-items: center; position: relative;
+  }
+
+  /* Motorola Widget */
+  .moto-widget {
+    margin-top: 20px; display: flex; flex-direction: column; align-items: center;
+    width: 200px; height: 200px; border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.25); justify-content: center; 
+    background: rgba(0, 0, 0, 0.2); backdrop-filter: blur(8px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3); transition: transform 0.3s ease;
+  }
+  
+  .moto-widget .time { font-size: 48px; font-weight: 300; letter-spacing: 1px; }
+  .moto-widget .date { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; opacity: 0.8; }
+  .moto-widget .weather { font-size: 12px; margin-top: 10px; color: var(--accent); font-weight: bold; }
+
+  /* Search Bar */
+  .search-bar {
+    width: 100%; background: rgba(255, 255, 255, 0.95); border-radius: 25px;
+    padding: 10px 18px; margin-top: 20px; display: flex; align-items: center;
+    color: #555; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); cursor: pointer;
+  }
+  
+  .search-bar .g-logo { font-weight: 800; color: #4285F4; margin-right: 12px; font-size: 16px; }
+
+  /* Swipe Up Handle Indicator */
+  .swipe-indicator {
+    margin-top: auto; margin-bottom: 8px; display: flex; flex-direction: column;
+    align-items: center; gap: 2px; opacity: 0.8; cursor: pointer; animation: bounce 2s infinite;
+  }
+
+  .swipe-arrow { font-size: 12px; }
+  .swipe-text { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+
+  @keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-5px); }
+    60% { transform: translateY(-3px); }
+  }
+
+  /* Dock Grid */
+  .app-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;
+    width: 100%; margin-bottom: 10px;
+  }
+  
+  .app { 
+    display: flex; flex-direction: column; align-items: center; 
+    font-size: 11px; cursor: pointer; transition: transform 0.15s; text-align: center;
+  }
+  
+  .app:active { transform: scale(0.9); }
+  
+  .app-icon {
+    width: 48px; height: 48px; border-radius: 50%; display: flex; 
+    justify-content: center; align-items: center; font-size: 22px; 
+    margin-bottom: 6px; background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  }
+
+  /* App Drawer */
+  .app-drawer {
+    position: absolute; top: 100%; left: 0; width: 100%; height: 100%;
+    background: rgba(18, 18, 22, 0.95); backdrop-filter: blur(20px); z-index: 45;
+    transition: top 0.35s cubic-bezier(0.1, 0.9, 0.2, 1);
+    padding: 40px 20px 20px; display: flex; flex-direction: column; gap: 15px; color: white;
+  }
+
+  .app-drawer.open { top: 0; }
+
+  .drawer-search {
+    width: 100%; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px; padding: 10px 15px; color: white; font-size: 14px; outline: none;
+  }
+
+  .drawer-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px 10px;
+    overflow-y: auto; padding: 10px 0 20px;
+  }
+
+  /* RECENT APPS / MULTITASKING SCREEN */
+  .recents-screen {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(10, 10, 14, 0.92); backdrop-filter: blur(15px); z-index: 55;
+    display: flex; flex-direction: column; padding: 50px 15px 20px;
+    opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+  }
+
+  .recents-screen.open { opacity: 1; pointer-events: all; }
+
+  .recents-header {
+    display: flex; justify-content: space-between; align-items: center;
+    color: white; margin-bottom: 20px;
+  }
+
+  .recents-header h3 { font-size: 18px; font-weight: 500; }
+
+  .clear-all-btn {
+    background: rgba(255, 255, 255, 0.15); border: none; color: var(--accent);
+    padding: 6px 12px; border-radius: 15px; font-size: 12px; cursor: pointer; font-weight: 600;
+  }
+
+  .recents-card-stack {
+    flex: 1; display: flex; flex-direction: column; gap: 15px;
+    overflow-y: auto; padding-bottom: 10px;
+  }
+
+  .recent-card {
+    background: #252530; border-radius: 18px; border: 1px solid rgba(255, 255, 255, 0.1);
+    height: 110px; display: flex; flex-direction: column; padding: 12px 15px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4); cursor: pointer; transition: transform 0.2s, opacity 0.2s;
+  }
+
+  .recent-card:active { transform: scale(0.98); }
+
+  .card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .card-info { display: flex; align-items: center; gap: 8px; }
+
+  .card-icon {
+    width: 24px; height: 24px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 12px;
+  }
+
+  .card-title { font-size: 13px; font-weight: 600; color: white; }
+
+  .close-card-btn {
+    background: none; border: none; color: #888; font-size: 16px; cursor: pointer; padding: 2px 6px;
+  }
+
+  .card-preview {
+    flex: 1; background: rgba(0, 0, 0, 0.3); border-radius: 10px;
+    display: flex; align-items: center; padding: 10px; font-size: 12px; color: #aaa;
+  }
+
+  .empty-recents { margin: auto; text-align: center; color: #777; font-size: 14px; }
+
+  /* Control Panel */
+  .control-center {
+    position: absolute; top: -100%; left: 0; width: 100%; height: 100%;
+    background: rgba(18, 18, 22, 0.95); backdrop-filter: blur(15px); z-index: 50;
+    transition: top 0.35s cubic-bezier(0.1, 0.9, 0.2, 1); padding: 40px 20px 20px;
+    display: flex; flex-direction: column; gap: 18px; color: white;
+  }
+
+  .control-center.open { top: 0; }
+
+  .qs-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+
+  .qs-clock { font-size: 28px; font-weight: 300; }
+  .qs-date-battery { text-align: right; font-size: 12px; color: #aaa; }
+
+  .qs-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+  .qs-tile {
+    background: var(--tile-inactive); border-radius: 16px; padding: 12px;
+    display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.2s ease;
+  }
+
+  .qs-tile.active { background: var(--tile-active); color: #000; }
+  .qs-tile .icon { font-size: 20px; width: 24px; text-align: center; }
+  .qs-tile .labels { display: flex; flex-direction: column; }
+  .qs-tile .title { font-size: 13px; font-weight: 600; }
+  .qs-tile .status { font-size: 11px; opacity: 0.7; }
+
+  .qs-sliders { display: flex; flex-direction: column; gap: 12px; margin-top: 5px; }
+
+  .slider-group {
+    display: flex; align-items: center; gap: 10px; background: rgba(255, 255, 255, 0.05);
+    padding: 8px 15px; border-radius: 20px;
+  }
+
+  .slider-group input[type=range] {
+    flex: 1; -webkit-appearance: none; background: rgba(255, 255, 255, 0.2);
+    height: 6px; border-radius: 3px; outline: none;
+  }
+
+  .slider-group input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--accent); cursor: pointer;
+  }
+
+  .qs-footer {
+    margin-top: auto; display: flex; justify-content: space-between;
+    align-items: center; padding-bottom: 20px;
+  }
+
+  .qs-btn {
+    width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1);
+    border: none; color: white; font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .pull-indicator {
+    width: 40px; height: 4px; background: rgba(255,255,255,0.4);
+    border-radius: 2px; margin: 0 auto 10px; cursor: pointer;
+  }
+
+  /* App Window Modal Generic */
+  .app-modal {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: #121216; z-index: 60; display: flex; flex-direction: column;
+    transform: scale(0.8); opacity: 0; pointer-events: none;
+    transition: all 0.2s ease-out; padding: 20px; color: white;
+  }
+
+  .app-modal.active { transform: scale(1); opacity: 1; pointer-events: all; }
+
+  /* CATEGORIZED SETTINGS APP INTERFACE */
+  .settings-app {
+    display: flex; flex-direction: column; height: 100%; width: 100%;
+    overflow-y: auto; text-align: left; padding-bottom: 20px;
+  }
+
+  .settings-title {
+    font-size: 22px; font-weight: 600; margin-bottom: 12px; margin-top: 25px;
+  }
+
+  .category-buttons {
+    display: flex; gap: 8px; overflow-x: auto; margin-bottom: 15px; padding-bottom: 5px;
+  }
+
+  .cat-btn {
+    background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white; padding: 6px 12px; border-radius: 12px; font-size: 11px;
+    font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s;
+  }
+
+  .cat-btn.active {
+    background: var(--accent); color: black; border-color: var(--accent);
+  }
+
+  .settings-category-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--accent); margin: 10px 0 6px 4px;
+  }
+
+  .settings-section {
+    background: var(--card-bg); border-radius: 16px;
+    margin-bottom: 12px; overflow: hidden;
+  }
+
+  .settings-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .settings-item:last-child { border-bottom: none; }
+  .settings-item .left-part { display: flex; align-items: center; gap: 12px; }
+  .settings-item .icon { font-size: 18px; width: 24px; text-align: center; }
+  .settings-item .label { font-size: 13px; font-weight: 500; }
+  .settings-item .sublabel { font-size: 11px; opacity: 0.6; margin-top: 2px; }
+
+  /* Switch Toggle Styling */
+  .switch { position: relative; display: inline-block; width: 42px; height: 24px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(255, 255, 255, 0.2); transition: .3s; border-radius: 24px;
+  }
+  .slider:before {
+    position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+    background-color: white; transition: .3s; border-radius: 50%;
+  }
+  input:checked + .slider { background-color: var(--accent); }
+  input:checked + .slider:before { transform: translateX(18px); background-color: #000; }
+
+  /* REAL WORKING APPS STYLES */
+  
+  /* Calculator */
+  .calc-container { display: flex; flex-direction: column; height: 100%; justify-content: flex-end; padding-top: 30px; }
+  .calc-screen { font-size: 36px; text-align: right; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 12px; margin-bottom: 15px; word-break: break-all; }
+  .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .calc-btn { background: rgba(255,255,255,0.1); border: none; color: white; padding: 15px; border-radius: 50%; font-size: 18px; font-weight: bold; cursor: pointer; }
+  .calc-btn.op { background: var(--accent); color: black; }
+
+  /* Notes */
+  .notes-container { display: flex; flex-direction: column; height: 100%; padding-top: 30px; }
+  .notes-input-box { display: flex; gap: 8px; margin-bottom: 15px; }
+  .notes-input { flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; padding: 8px 12px; color: white; outline: none; }
+  .notes-add-btn { background: var(--accent); border: none; color: black; padding: 8px 12px; border-radius: 10px; font-weight: bold; cursor: pointer; }
+  .notes-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+  .note-card { background: rgba(255,255,255,0.08); padding: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+
+  /* Camera */
+  .camera-container { display: flex; flex-direction: column; height: 100%; align-items: center; justify-content: space-between; padding-top: 30px; padding-bottom: 20px; }
+  .viewfinder { width: 100%; height: 320px; background: #000; border-radius: 20px; border: 2px dashed rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+  .shutter-btn { width: 60px; height: 60px; border-radius: 50%; background: white; border: 4px solid #555; cursor: pointer; }
+
+  /* App Creator (ResenhaScript IDE) */
+  .creator-container { display: flex; flex-direction: column; height: 100%; padding-top: 25px; gap: 10px; }
+  .creator-editor { width: 100%; height: 140px; background: #0a0a0f; border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; padding: 10px; color: #00e5ff; font-family: monospace; font-size: 12px; outline: none; resize: none; }
+  .creator-run-btn { background: var(--accent); border: none; color: black; padding: 10px; border-radius: 10px; font-weight: bold; cursor: pointer; }
+  .creator-preview { flex: 1; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px; border: 1px solid rgba(255,255,255,0.1); overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+
+  /* Navigation Bar */
+  .nav-bar {
+    height: 45px; display: flex; justify-content: space-evenly;
+    align-items: center; background: transparent; padding-bottom: 5px; z-index: 70;
+  }
+  
+  .nav-btn { 
+    background: none; border: none; color: white; opacity: 0.8; 
+    font-size: 18px; cursor: pointer; padding: 10px;
+  }
+  
+  .nav-btn.home { 
+    border: 2px solid white; border-radius: 50%; width: 16px; height: 16px; padding: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="camera-hole"></div>
+  
+  <div class="screen" id="screen">
+    
+    <div class="brightness-overlay" id="brightness-overlay"></div>
+    <div class="flashlight-overlay" id="flashlight-overlay"></div>
+
+    <div class="volume-toast" id="volume-toast">
+      <span id="vol-icon">🔊</span>
+      <span id="vol-level">70%</span>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar" onclick="toggleControlCenter(true)">
+      <div id="clock">00:00</div>
+      <div class="status-icons">
+        <span id="wifi-icon">📶</span>
+        <span id="bt-icon" style="opacity:0.2">ᛒ</span>
+        <span id="dnd-icon" style="opacity:0; display:none;">🌙</span>
+        <span id="bat-text">85%</span> <span id="bat-icon">🔋</span>
+      </div>
+    </div>
+
+    <!-- Home Screen -->
+    <div class="home-screen" id="home-screen">
+      
+      <div class="moto-widget" id="moto-widget">
+        <div class="time" id="widget-time">00:00</div>
+        <div class="date" id="widget-date">MON, JAN 01</div>
+        <div class="weather">🌤 24°C</div>
+      </div>
+
+      <div class="search-bar" onclick="openApp('Google Search')">
+        <span class="g-logo">G</span>
+        <span style="flex:1; opacity:0.6;">Search or type URL</span>
+        <span>🎙️</span>
+      </div>
+
+      <div class="swipe-indicator" onclick="toggleAppDrawer(true)">
+        <span class="swipe-arrow">▲</span>
+        <span class="swipe-text">Swipe Up</span>
+      </div>
+
+      <div class="app-grid">
+        <div class="app" onclick="openApp('App Creator')">
+          <div class="app-icon" style="background:#00e5ff; color:black;">🛠️</div>
+          <span>App Creator</span>
+        </div>
+        <div class="app" onclick="openApp('Calculator')">
+          <div class="app-icon" style="background:#FF9500;">🧮</div>
+          <span>Calculator</span>
+        </div>
+        <div class="app" onclick="openApp('Notes')">
+          <div class="app-icon" style="background:#FFCC00; color:black;">📝</div>
+          <span>Notes</span>
+        </div>
+        <div class="app" onclick="openApp('Camera')">
+          <div class="app-icon" style="background:#EA4335;">📷</div>
+          <span>Camera</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- APP DRAWER / LAUNCHER -->
+    <div class="app-drawer" id="app-drawer">
+      <div class="pull-indicator" onclick="toggleAppDrawer(false)"></div>
+      <input type="text" class="drawer-search" id="drawer-search" placeholder="Search apps..." oninput="filterApps(this.value)">
+      <div class="drawer-grid" id="drawer-grid"></div>
+    </div>
+
+    <!-- RECENT APPS SCREEN -->
+    <div class="recents-screen" id="recents-screen">
+      <div class="recents-header">
+        <h3>Recent Apps</h3>
+        <button class="clear-all-btn" onclick="clearAllRecents()">Clear All</button>
+      </div>
+      <div class="recents-card-stack" id="recents-stack"></div>
+    </div>
+
+    <!-- CONTROL PANEL -->
+    <div class="control-center" id="control-center">
+      <div class="pull-indicator" onclick="toggleControlCenter(false)"></div>
+      
+      <div class="qs-header">
+        <div class="qs-clock" id="qs-clock">00:00</div>
+        <div class="qs-date-battery">
+          <div id="qs-date">Mon, Jan 1</div>
+          <div>Battery: <span id="qs-battery-level">85%</span></div>
+        </div>
+      </div>
+
+      <div class="qs-grid">
+        <div class="qs-tile active" id="tile-wifi" onclick="toggleTile('wifi')">
+          <div class="icon">📶</div>
+          <div class="labels"><span class="title">Wi-Fi</span><span class="status" id="status-wifi">Connected</span></div>
+        </div>
+        <div class="qs-tile" id="tile-bt" onclick="toggleTile('bt')">
+          <div class="icon">ᛒ</div>
+          <div class="labels"><span class="title">Bluetooth</span><span class="status" id="status-bt">Off</span></div>
+        </div>
+        <div class="qs-tile" id="tile-flash" onclick="toggleTile('flash')">
+          <div class="icon">🔦</div>
+          <div class="labels"><span class="title">Flashlight</span><span class="status" id="status-flash">Off</span></div>
+        </div>
+        <div class="qs-tile" id="tile-airplane" onclick="toggleTile('airplane')">
+          <div class="icon">✈️</div>
+          <div class="labels"><span class="title">Airplane Mode</span><span class="status" id="status-airplane">Off</span></div>
+        </div>
+        <div class="qs-tile active" id="tile-rotation" onclick="toggleTile('rotation')">
+          <div class="icon">🔄</div>
+          <div class="labels"><span class="title">Auto-rotate</span><span class="status" id="status-rotation">On</span></div>
+        </div>
+        <div class="qs-tile" id="tile-saver" onclick="toggleTile('saver')">
+          <div class="icon">🔋</div>
+          <div class="labels"><span class="title">Battery Saver</span><span class="status" id="status-saver">Off</span></div>
+        </div>
+        <div class="qs-tile" id="tile-dnd" onclick="toggleTile('dnd')">
+          <div class="icon">🌙</div>
+          <div class="labels"><span class="title">Do Not Disturb</span><span class="status" id="status-dnd">Off</span></div>
+        </div>
+        <div class="qs-tile active" id="tile-theme" onclick="toggleTile('theme')">
+          <div class="icon">🎨</div>
+          <div class="labels"><span class="title">Dark Theme</span><span class="status" id="status-theme">On</span></div>
+        </div>
+      </div>
+
+      <div class="qs-sliders">
+        <div class="slider-group">
+          <span>☀️</span>
+          <input type="range" id="brightness-slider" min="10" max="100" value="100" oninput="adjustBrightness(this.value)">
+        </div>
+        <div class="slider-group">
+          <span>🔊</span>
+          <input type="range" id="volume-slider" min="0" max="100" value="70" oninput="adjustVolume(this.value)">
+        </div>
+      </div>
+
+      <div class="qs-footer">
+        <button class="qs-btn" onclick="openApp('User Profile')">👤</button>
+        <button class="qs-btn" onclick="openApp('Shortcuts')">✏️</button>
+        <button class="qs-btn" onclick="openApp('Settings')">⚙️</button>
+      </div>
+    </div>
+
+    <!-- App Window Modal -->
+    <div class="app-modal" id="app-modal">
+      <div id="modal-content-container" style="width: 100%; height: 100%;"></div>
+    </div>
+
+    <!-- Navigation Bar -->
+    <div class="nav-bar">
+      <button class="nav-btn" onclick="goBack()">◁</button>
+      <button class="nav-btn home" onclick="goHome()"></button>
+      <button class="nav-btn" onclick="toggleRecents()">◻</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const installedApps = [
+    { name: 'App Creator', icon: '🛠️', bg: '#00e5ff' },
+    { name: 'Calculator', icon: '🧮', bg: '#FF9500' },
+    { name: 'Calendar', icon: '📅', bg: '#FF3B30' },
+    { name: 'Camera', icon: '📷', bg: '#EA4335' },
+    { name: 'Chrome', icon: '🌐', bg: '#FFC107' },
+    { name: 'Clock', icon: '⏰', bg: '#5856D6' },
+    { name: 'Contacts', icon: '👥', bg: '#007AFF' },
+    { name: 'Files', icon: '📁', bg: '#FF9500' },
+    { name: 'Gallery', icon: '🖼️', bg: '#AF52DE' },
+    { name: 'Gmail', icon: '✉️', bg: '#EA4335' },
+    { name: 'Maps', icon: '🗺️', bg: '#34A853' },
+    { name: 'Messages', icon: '💬', bg: '#0078FF' },
+    { name: 'Music', icon: '🎵', bg: '#FF2D55' },
+    { name: 'Notes', icon: '📝', bg: '#FFCC00' },
+    { name: 'Phone', icon: '📞', bg: '#34A853' },
+    { name: 'Settings', icon: '⚙️', bg: '#8E8E93' }
+  ];
+
+  let runningApps = ['Chrome', 'Messages'];
+  let notesData = ['Buy Groceries', 'Meeting at 3 PM'];
+
+  const state = {
+    wifi: true,
+    bt: false,
+    flash: false,
+    airplane: false,
+    rotation: true,
+    saver: false,
+    dnd: false,
+    theme: true,
+    showBatPercent: true,
+    muteAudio: false,
+    activeSettingsCategory: 'all'
+  };
+
+  let volumeTimeout;
+
+  // Render App Launcher
+  function renderAppDrawer(apps) {
+    const grid = document.getElementById('drawer-grid');
+    grid.innerHTML = '';
+    apps.forEach(app => {
+      const appEl = document.createElement('div');
+      appEl.className = 'app';
+      appEl.onclick = () => openApp(app.name);
+      appEl.innerHTML = `
+        <div class="app-icon" style="background:${app.bg};">${app.icon}</div>
+        <span>${app.name}</span>
+      `;
+      grid.appendChild(appEl);
+    });
+  }
+
+  function filterApps(query) {
+    const filtered = installedApps.filter(app => 
+      app.name.toLowerCase().includes(query.toLowerCase())
+    );
+    renderAppDrawer(filtered);
+  }
+
+  // RECENT APPS / MULTITASKING LOGIC
+  function toggleRecents() {
+    const recentsScreen = document.getElementById('recents-screen');
+    const appModal = document.getElementById('app-modal');
+    const isOpen = recentsScreen.classList.contains('open');
+
+    if (isOpen) {
+      recentsScreen.classList.remove('open');
+    } else {
+      appModal.classList.remove('active');
+      toggleControlCenter(false);
+      toggleAppDrawer(false);
+      renderRecents();
+      recentsScreen.classList.add('open');
+    }
+  }
+
+  function renderRecents() {
+    const stack = document.getElementById('recents-stack');
+    stack.innerHTML = '';
+
+    if (runningApps.length === 0) {
+      stack.innerHTML = `<div class="empty-recents">No recent apps</div>`;
+      return;
+    }
+
+    runningApps.forEach((appName, index) => {
+      const appData = installedApps.find(a => a.name === appName) || { icon: '📱', bg: '#555' };
+      const card = document.createElement('div');
+      card.className = 'recent-card';
+      card.onclick = () => {
+        document.getElementById('recents-screen').classList.remove('open');
+        openApp(appName);
+      };
+
+      card.innerHTML = `
+        <div class="card-top">
+          <div class="card-info">
+            <div class="card-icon" style="background:${appData.bg}">${appData.icon}</div>
+            <span class="card-title">${appName}</span>
+          </div>
+          <button class="close-card-btn" onclick="event.stopPropagation(); removeRecent(${index})">✕</button>
+        </div>
+        <div class="card-preview">
+          <span>Active App State</span>
+        </div>
+      `;
+      stack.appendChild(card);
+    });
+  }
+
+  function removeRecent(index) {
+    runningApps.splice(index, 1);
+    renderRecents();
+  }
+
+  function clearAllRecents() {
+    runningApps = [];
+    renderRecents();
+  }
+
+  // Open App Window
+  function openApp(appName) {
+    toggleControlCenter(false);
+    toggleAppDrawer(false);
+    document.getElementById('recents-screen').classList.remove('open');
+
+    if (!runningApps.includes(appName)) runningApps.unshift(appName);
+    else {
+      runningApps = runningApps.filter(a => a !== appName);
+      runningApps.unshift(appName);
+    }
+
+    const modal = document.getElementById('app-modal');
+    const container = document.getElementById('modal-content-container');
+
+    if (appName === 'Settings') renderSettingsApp(container);
+    else if (appName === 'Calculator') renderCalculatorApp(container);
+    else if (appName === 'Notes') renderNotesApp(container);
+    else if (appName === 'Camera') renderCameraApp(container);
+    else if (appName === 'App Creator') renderAppCreatorApp(container);
+    else {
+      container.innerHTML = `
+        <h2 style="margin-top: 40px; margin-bottom: 10px; text-align: center;">${appName}</h2>
+        <p style="color: #aaa; font-size: 14px; text-align: center;">App is active and running natively.</p>
+      `;
+    }
+
+    modal.classList.add('active');
+  }
+
+  // APP 1: CATEGORIZED SETTINGS WITH BUTTONS
+  function filterSettingsCategory(catName) {
+    state.activeSettingsCategory = catName;
+    renderSettingsApp(document.getElementById('modal-content-container'));
+  }
+
+  function renderSettingsApp(container) {
+    const cat = state.activeSettingsCategory;
+
+    const showNet = cat === 'all' || cat === 'network';
+    const showDisp = cat === 'all' || cat === 'display';
+    const showSnd = cat === 'all' || cat === 'sound';
+    const showSys = cat === 'all' || cat === 'system';
+
+    container.innerHTML = `
+      <div class="settings-app">
+        <div class="settings-title">Settings</div>
+        
+        <!-- Category Buttons -->
+        <div class="category-buttons">
+          <button class="cat-btn ${cat==='all'?'active':''}" onclick="filterSettingsCategory('all')">All</button>
+          <button class="cat-btn ${cat==='network'?'active':''}" onclick="filterSettingsCategory('network')">Network</button>
+          <button class="cat-btn ${cat==='display'?'active':''}" onclick="filterSettingsCategory('display')">Display</button>
+          <button class="cat-btn ${cat==='sound'?'active':''}" onclick="filterSettingsCategory('sound')">Sound</button>
+          <button class="cat-btn ${cat==='system'?'active':''}" onclick="filterSettingsCategory('system')">System</button>
+        </div>
+
+        ${showNet ? `
+        <div class="settings-category-title">Network & Connectivity</div>
+        <div class="settings-section">
+          <div class="settings-item">
+            <div class="left-part">
+              <span class="icon">📶</span>
+              <div>
+                <div class="label">Wi-Fi Network</div>
+                <div class="sublabel">${state.wifi ? 'Connected to Home_5G' : 'Disconnected'}</div>
+              </div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" ${state.wifi ? 'checked' : ''} onchange="toggleTile('wifi')">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="settings-item">
+            <div class="left-part">
+              <span class="icon">ᛒ</span>
+              <div>
+                <div class="label">Bluetooth</div>
+                <div class="sublabel">${state.bt ? 'Searching...' : 'Off'}</div>
+              </div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" ${state.bt ? 'checked' : ''} onchange="toggleTile('bt')">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        ` : ''}
+
+        ${showDisp ? `
+        <div class="settings-category-title">Display & Appearance</div>
+        <div class="settings-section">
+          <div class="settings-item">
+            <div class="left-part">
+              <span class="icon">🎨</span>
+              <div>
+                <div class="label">Dark Theme</div>
+                <div class="sublabel">Use dark theme palette</div>
+              </div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" ${state.theme ? 'checked' : ''} onchange="toggleTile('theme')">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="settings-item">
+            <div class="left-part">
+              <span class="icon">🔄</span>
+              <div>
+                <div class="label">Auto-Rotate</div>
+                <div class="sublabel">Rotate interface dynamically</div>
+              </div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" ${state.rotation ? 'checked' : ''} onchange="toggleTile('rotation')">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        ` : ''}
+
+        ${showSnd ? `
+        <div class="settings-category-title">Sound & Audio</div>
+        <div class="settings-section">
+          <div class="settings-item">
+            <div class="left-part">
+              <span class="icon">🔇</span>
+              <div>
+                <div class="label">Mute All Audio</div>
+                <div class="sublabel">Disable sound output</div>
+              </div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" ${state.muteAudio ? 'checked' : ''} onchange="toggleMuteAudio(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        ` : ''}
+
+        ${showSys ? `
+        <div class="settings-category-title">System & About</div>
+        <div class="settings-section">
+          <div class="settings-item">
+            <div class="left-part">
+              <span class="icon">🔋</span>
+              <div>
+                <div class="label">Battery Percentage</div>
+                <div class="sublabel">Display value in status bar</div>
+              </div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" ${state.showBatPercent ? 'checked' : ''} onchange="toggleBatteryPercent(this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+        ` : ''}
+
+      </div>
+    `;
+  }
+
+  // APP 2: CALCULATOR
+  let calcExpr = '';
+  function renderCalculatorApp(container) {
+    container.innerHTML = `
+      <div class="calc-container">
+        <div class="calc-screen" id="calc-val">${calcExpr || '0'}</div>
+        <div class="calc-grid">
+          <button class="calc-btn" onclick="pressCalc('C')">C</button>
+          <button class="calc-btn" onclick="pressCalc('(')">(</button>
+          <button class="calc-btn" onclick="pressCalc(')')">)</button>
+          <button class="calc-btn op" onclick="pressCalc('/')">÷</button>
+          <button class="calc-btn" onclick="pressCalc('7')">7</button>
+          <button class="calc-btn" onclick="pressCalc('8')">8</button>
+          <button class="calc-btn" onclick="pressCalc('9')">9</button>
+          <button class="calc-btn op" onclick="pressCalc('*')">×</button>
+          <button class="calc-btn" onclick="pressCalc('4')">4</button>
+          <button class="calc-btn" onclick="pressCalc('5')">5</button>
+          <button class="calc-btn" onclick="pressCalc('6')">6</button>
+          <button class="calc-btn op" onclick="pressCalc('-')">-</button>
+          <button class="calc-btn" onclick="pressCalc('1')">1</button>
+          <button class="calc-btn" onclick="pressCalc('2')">2</button>
+          <button class="calc-btn" onclick="pressCalc('3')">3</button>
+          <button class="calc-btn op" onclick="pressCalc('+')">+</button>
+          <button class="calc-btn" onclick="pressCalc('0')">0</button>
+          <button class="calc-btn" onclick="pressCalc('.')">.</button>
+          <button class="calc-btn op" style="grid-column: span 2;" onclick="pressCalc('=')">=</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function pressCalc(v) {
+    if (v === 'C') calcExpr = '';
+    else if (v === '=') {
+      try { calcExpr = String(eval(calcExpr)); } 
+      catch { calcExpr = 'Error'; }
+    } else {
+      if (calcExpr === 'Error') calcExpr = '';
+      calcExpr += v;
+    }
+    document.getElementById('calc-val').textContent = calcExpr || '0';
+  }
+
+  // APP 3: NOTES
+  function renderNotesApp(container) {
+    container.innerHTML = `
+      <div class="notes-container">
+        <h3 style="margin-bottom:12px;">Notes</h3>
+        <div class="notes-input-box">
+          <input type="text" id="note-in" class="notes-input" placeholder="New note...">
+          <button class="notes-add-btn" onclick="addNote()">Add</button>
+        </div>
+        <div class="notes-list" id="notes-list"></div>
+      </div>
+    `;
+    updateNotesList();
+  }
+
+  function updateNotesList() {
+    const list = document.getElementById('notes-list');
+    if(!list) return;
+    list.innerHTML = '';
+    notesData.forEach((n, i) => {
+      const item = document.createElement('div');
+      item.className = 'note-card';
+      item.innerHTML = `<span>${n}</span><button onclick="delNote(${i})" style="background:none;border:none;color:#ff5555;cursor:pointer;">✕</button>`;
+      list.appendChild(item);
+    });
+  }
+
+  function addNote() {
+    const inp = document.getElementById('note-in');
+    if (inp.value.trim()) {
+      notesData.push(inp.value.trim());
+      inp.value = '';
+      updateNotesList();
+    }
+  }
+
+  function delNote(i) {
+    notesData.splice(i, 1);
+    updateNotesList();
+  }
+
+  // APP 4: CAMERA
+  function renderCameraApp(container) {
+    container.innerHTML = `
+      <div class="camera-container">
+        <div style="font-weight:600; font-size:14px;">Camera Viewfinder</div>
+        <div class="viewfinder" id="vf">
+          <span style="font-size:40px;">📷</span>
+        </div>
+        <button class="shutter-btn" onclick="takePhoto()"></button>
+      </div>
+    `;
+  }
+
+  function takePhoto() {
+    const vf = document.getElementById('vf');
+    vf.style.background = '#fff';
+    setTimeout(() => { vf.style.background = '#000'; }, 100);
+    alert('Photo captured and saved to Gallery!');
+  }
+
+  // APP 5: APP CREATOR (ResenhaScript DSL Parser)
+  let defaultCode = `TITLE My First App
+TEXT Enter your details below:
+INPUT Name -> PLACEHOLDER Enter name...
+BUTTON Submit -> NOTIFY Form Submitted Successfully!
+TEXT Dynamic Counter Component:
+COUNTER`;
+
+  function renderAppCreatorApp(container) {
+    container.innerHTML = `
+      <div class="creator-container">
+        <div style="font-weight:600; font-size:14px;">App Creator (ResenhaScript)</div>
+        <textarea id="script-editor" class="creator-editor">${defaultCode}</textarea>
+        <button class="creator-run-btn" onclick="runResenhaScript()">Build & Run App</button>
+        <div class="creator-preview" id="app-output"></div>
+      </div>
+    `;
+    runResenhaScript();
+  }
+
+  // ResenhaScript Interpreter / Parser
+  let creatorCounter = 0;
+  function runResenhaScript() {
+    const code = document.getElementById('script-editor').value;
+    defaultCode = code;
+    const output = document.getElementById('app-output');
+    output.innerHTML = '';
+
+    const lines = code.split('\n');
+
+    lines.forEach(line => {
+      line = line.trim();
+      if (!line) return;
+
+      if (line.startsWith('TITLE ')) {
+        const titleText = line.replace('TITLE ', '');
+        const el = document.createElement('h3');
+        el.style.color = 'var(--accent)';
+        el.textContent = titleText;
+        output.appendChild(el);
+      } 
+      else if (line.startsWith('TEXT ')) {
+        const textContent = line.replace('TEXT ', '');
+        const el = document.createElement('p');
+        el.style.fontSize = '12px';
+        el.textContent = textContent;
+        output.appendChild(el);
+      } 
+      else if (line.startsWith('INPUT ')) {
+        const parts = line.replace('INPUT ', '').split('-> PLACEHOLDER ');
+        const label = parts[0];
+        const placeholder = parts[1] || '';
+        
+        const wrap = document.createElement('div');
+        wrap.style.display = 'flex';
+        wrap.style.flexDirection = 'column';
+        wrap.style.gap = '4px';
+
+        const lbl = document.createElement('label');
+        lbl.style.fontSize = '11px';
+        lbl.textContent = label;
+
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.placeholder = placeholder;
+        inp.style.background = 'rgba(255,255,255,0.1)';
+        inp.style.border = '1px solid rgba(255,255,255,0.2)';
+        inp.style.padding = '6px';
+        inp.style.borderRadius = '6px';
+        inp.style.color = 'white';
+
+        wrap.appendChild(lbl);
+        wrap.appendChild(inp);
+        output.appendChild(wrap);
+      } 
+      else if (line.startsWith('BUTTON ')) {
+        const parts = line.replace('BUTTON ', '').split('-> NOTIFY ');
+        const btnLabel = parts[0];
+        const notifyMsg = parts[1] || 'Button Clicked!';
+
+        const btn = document.createElement('button');
+        btn.textContent = btnLabel;
+        btn.style.background = 'var(--accent)';
+        btn.style.border = 'none';
+        btn.style.color = 'black';
+        btn.style.padding = '8px';
+        btn.style.borderRadius = '6px';
+        btn.style.fontWeight = 'bold';
+        btn.style.cursor = 'pointer';
+        btn.onclick = () => alert(notifyMsg);
+        output.appendChild(btn);
+      }
+      else if (line === 'COUNTER') {
+        const wrap = document.createElement('div');
+        wrap.style.display = 'flex';
+        wrap.style.alignItems = 'center';
+        wrap.style.gap = '10px';
+
+        const countVal = document.createElement('span');
+        countVal.textContent = `Count: ${creatorCounter}`;
+        countVal.style.fontSize = '12px';
+
+        const incBtn = document.createElement('button');
+        incBtn.textContent = '+';
+        incBtn.style.padding = '4px 10px';
+        incBtn.style.background = 'rgba(255,255,255,0.2)';
+        incBtn.style.border = 'none';
+        incBtn.style.color = 'white';
+        incBtn.style.borderRadius = '4px';
+        incBtn.onclick = () => {
+          creatorCounter++;
+          countVal.textContent = `Count: ${creatorCounter}`;
+        };
+
+        wrap.appendChild(countVal);
+        wrap.appendChild(incBtn);
+        output.appendChild(wrap);
+      }
+    });
+  }
+
+  // System Settings Helper Functions
+  function toggleBatteryPercent(enabled) {
+    state.showBatPercent = enabled;
+    document.getElementById('bat-text').style.display = enabled ? 'inline' : 'none';
+  }
+
+  function toggleMuteAudio(enabled) {
+    state.muteAudio = enabled;
+    const volumeSlider = document.getElementById('volume-slider');
+    if (enabled) {
+      adjustVolume(0);
+      volumeSlider.value = 0;
+    } else {
+      adjustVolume(70);
+      volumeSlider.value = 70;
+    }
+  }
+
+  // Quick Settings Tiles
+  function toggleTile(key) {
+    state[key] = !state[key];
+    const tile = document.getElementById(`tile-${key}`);
+
+    if (tile) {
+      if (state[key]) tile.classList.add('active');
+      else tile.classList.remove('active');
+    }
+
+    switch(key) {
+      case 'wifi':
+        document.getElementById('wifi-icon').style.opacity = state.wifi ? '1' : '0.2';
+        break;
+      case 'bt':
+        document.getElementById('bt-icon').style.opacity = state.bt ? '1' : '0.2';
+        break;
+      case 'flash':
+        document.getElementById('flashlight-overlay').style.display = state.flash ? 'block' : 'none';
+        break;
+      case 'airplane':
+        if (state.airplane) {
+          state.wifi = false; state.bt = false;
+          document.getElementById('wifi-icon').style.opacity = '0.2';
+          document.getElementById('bt-icon').style.opacity = '0.2';
+          const wifiTile = document.getElementById('tile-wifi');
+          const btTile = document.getElementById('tile-bt');
+          if (wifiTile) wifiTile.classList.remove('active');
+          if (btTile) btTile.classList.remove('active');
+        }
+        break;
+      case 'rotation':
+        document.getElementById('moto-widget').style.transform = state.rotation ? 'rotate(0deg)' : 'rotate(-5deg)';
+        break;
+      case 'dnd':
+        const dndIcon = document.getElementById('dnd-icon');
+        dndIcon.style.display = state.dnd ? 'inline' : 'none';
+        dndIcon.style.opacity = state.dnd ? '1' : '0';
+        break;
+      case 'theme':
+        const screen = document.getElementById('screen');
+        if (state.theme) {
+          screen.style.setProperty('--screen-bg', 'linear-gradient(135deg, #1f1c2c 0%, #928dab 100%)');
+          screen.style.setProperty('--text-color', '#ffffff');
+          screen.style.setProperty('--card-bg', 'rgba(255, 255, 255, 0.08)');
+        } else {
+          screen.style.setProperty('--screen-bg', 'linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%)');
+          screen.style.setProperty('--text-color', '#111111');
+          screen.style.setProperty('--card-bg', 'rgba(0, 0, 0, 0.06)');
+        }
+        break;
+    }
+    updateTileStatuses();
+  }
+
+  function updateTileStatuses() {
+    if (document.getElementById('status-wifi')) {
+      document.getElementById('status-wifi').textContent = state.wifi ? 'Connected' : 'Off';
+      document.getElementById('status-bt').textContent = state.bt ? 'Connected' : 'Off';
+      document.getElementById('status-flash').textContent = state.flash ? 'On' : 'Off';
+      document.getElementById('status-airplane').textContent = state.airplane ? 'On' : 'Off';
+      document.getElementById('status-rotation').textContent = state.rotation ? 'On' : 'Locked';
+      document.getElementById('status-saver').textContent = state.saver ? 'On' : 'Off';
+      document.getElementById('status-dnd').textContent = state.dnd ? 'On' : 'Off';
+      document.getElementById('status-theme').textContent = state.theme ? 'On' : 'Off';
+    }
+  }
+
+  // System Time Loop
+  function updateTime() {
+    const now = new Date();
+    let hours = String(now.getHours()).padStart(2, '0');
+    let minutes = String(now.getMinutes()).padStart(2, '0');
+    const timeStr = `${hours}:${minutes}`;
+    
+    document.getElementById('clock').textContent = timeStr;
+    document.getElementById('widget-time').textContent = timeStr;
+    document.getElementById('qs-clock').textContent = timeStr;
+
+    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    
+    const dayName = days[now.getDay()];
+    const monthName = months[now.getMonth()];
+    const dateNum = now.getDate();
+    
+    document.getElementById('widget-date').textContent = `${dayName}, ${monthName} ${dateNum}`;
+    document.getElementById('qs-date').textContent = `${dayName.charAt(0) + dayName.slice(1).toLowerCase()}, ${monthName.charAt(0) + monthName.slice(1).toLowerCase()} ${dateNum}`;
+  }
+
+  setInterval(updateTime, 1000);
+  updateTime();
+
+  // Control Center & Navigation
+  function toggleControlCenter(open) {
+    const cc = document.getElementById('control-center');
+    if (open) cc.classList.add('open');
+    else cc.classList.remove('open');
+  }
+
+  function toggleAppDrawer(open) {
+    const drawer = document.getElementById('app-drawer');
+    if (open) {
+      drawer.classList.add('open');
+      document.getElementById('drawer-search').focus();
+    } else {
+      drawer.classList.remove('open');
+      document.getElementById('drawer-search').value = '';
+      renderAppDrawer(installedApps);
+    }
+  }
+
+  function adjustBrightness(val) {
+    const opacity = (100 - val) / 100 * 0.85;
+    document.getElementById('brightness-overlay').style.opacity = opacity;
+  }
+
+  function adjustVolume(val) {
+    const toast = document.getElementById('volume-toast');
+    const volLevel = document.getElementById('vol-level');
+    const volIcon = document.getElementById('vol-icon');
+
+    volLevel.textContent = `${val}%`;
+    volIcon.textContent = val == 0 ? '🔇' : val < 50 ? '🔉' : '🔊';
+
+    toast.classList.add('show');
+    clearTimeout(volumeTimeout);
+    volumeTimeout = setTimeout(() => toast.classList.remove('show'), 1500);
+  }
+
+  function goHome() {
+    toggleControlCenter(false);
+    toggleAppDrawer(false);
+    document.getElementById('recents-screen').classList.remove('open');
+    document.getElementById('app-modal').classList.remove('active');
+  }
+
+  function goBack() {
+    const cc = document.getElementById('control-center');
+    const drawer = document.getElementById('app-drawer');
+    const recents = document.getElementById('recents-screen');
+    const modal = document.getElementById('app-modal');
+
+    if (cc.classList.contains('open')) toggleControlCenter(false);
+    else if (drawer.classList.contains('open')) toggleAppDrawer(false);
+    else if (recents.classList.contains('open')) recents.classList.remove('open');
+    else if (modal.classList.contains('active')) modal.classList.remove('active');
+  }
+
+  // Initialization
+  renderAppDrawer(installedApps);
+  updateTileStatuses();
+</script>
+
+</body>
+</html>
